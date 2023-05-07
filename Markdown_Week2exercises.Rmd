@@ -5,7 +5,7 @@ date: "2023-04-28"
 ---
 # Preparatory Tasks
 ```{r}
-##demostrate lead and lag
+##demonstrate lead and lag
 
 library(dplyr)
 
@@ -57,6 +57,7 @@ library("readr")
 library("sf") 
 library(dplyr)
 library(ggplot2)
+library(tmap)
 
 wildschwein_BE <- read_delim("wildschwein_BE_2056.csv", ",")
 
@@ -124,5 +125,52 @@ wildschwein <- wildschwein |>
 
 hist(log10(wildschwein$speed_ms))
 
+```
+
+
+#Task 6
+
+```{r}
+library(ggmap)
+
+
+posmo_neu <- st_as_sf(posmo_data, coords = c("lon_x", "lat_y"), crs = 2056, remove = FALSE)
+```
+
+```{r}
+posmo_korr <- posmo_neu %>%
+  mutate(transport_mode = ifelse(transport_mode == "Car", "Bike", transport_mode))
+
+ggplot(posmo_korr,aes(datetime,transport_mode))+ #a lot of NA trackings
+  geom_point()
+
+
+posmo_neu <- posmo_korr |> 
+  group_by(weekday,transport_mode) |>
+  mutate(diff_s = as.numeric(difftime(lead(datetime),datetime))) |> 
+  mutate(steplength_m = sqrt((lon_x-lead(lon_x))^2+ (lat_y-lead(lat_y))^2)) |> 
+  mutate(speed_ms = steplength_m/diff_s)
+
+hist(log10(posmo_neu$speed_ms))
+
+
+# plot the data using tmap
+tm_shape(posmo_neu) +
+   tm_dots(col = "red", size = 0.2) +
+  tm_basemap(server = "OpenStreetMap")
+
+
+# download a map of Zurich from Google Maps
+zurich_map <- qmap("Zurich", zoom = 13, maptype = "terrain")
+
+# convert the map to an sf object
+zurich_sf <- ggmap::ggmap_to_sf(zurich_map)
+
+# plot the data and map using tmap
+tm_shape(zurich_sf) +
+  tm_raster() +
+  tm_shape(tracking_sf) +
+  tm_dots(col = "red", size = 1) +
+  tm_basemap(server = "OpenStreetMap")
 ```
 
